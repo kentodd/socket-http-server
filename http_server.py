@@ -88,15 +88,12 @@ def resolve_uri(uri):
 
     #get url
     from mimetypes import MimeTypes
-    import urllib
     path = parse_request()
     mime = MimeTypes()
     mytype = mime.guess_type(path)
 
     content = b"{}".format(path)
     mime_type = b"{}".format(mytype)
-
-
 
     return content, mime_type
 
