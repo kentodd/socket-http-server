@@ -1,23 +1,16 @@
 import socket
 import sys
+import mimetypes
+
 
 def response_ok(body=b"This is a minimal response", mimetype=b"text/plain"):
-    """
-    returns a basic HTTP response
-    Ex:
-        response_ok(
-            b"<html><h1>Welcome:</h1></html>",
-            b"text/html"
-        ) ->
 
-        b'''
-        HTTP/1.1 200 OK\r\n
-        Content-Type: text/html\r\n
-        \r\n
-        <html><h1>Welcome:</h1></html>\r\n
-        '''
-    """
-    pass
+    return b"\r\n".join([
+        b"HTTP/1.1 200 OK",
+        b"Content-Type: " + mimetype,
+        b"",
+        body,
+        ])
 
 
 def parse_request(request):
@@ -27,17 +20,33 @@ def parse_request(request):
     This server only handles GET requests, so this method shall raise a
     NotImplementedError if the method of the request is not GET.
     """
-    pass
+
+    method, uri, version = request.split("\r\n")[0].split(" ")
+
+    if method != "GET":
+        raise NotImplementedError
+
+    return path
 
 
 def response_method_not_allowed():
     """Returns a 405 Method Not Allowed response"""
-    pass
+
+    return b"\r\n".join([
+        b"HTTP/1.1 405 Method not Allowed",
+        b"",
+        b"You Can't Do That On This Server!"
+    ])
 
 
 def response_not_found():
     """Returns a 404 Not Found response"""
-    pass
+
+    return b"\r\n".join([
+        b"HTTP/1.1 404 Not Found",
+        b"",
+        b"I can't find that"
+    ])
     
 
 def resolve_uri(uri):
@@ -74,8 +83,20 @@ def resolve_uri(uri):
     # TODO: Fill in the appropriate content and mime_type give the URI.
     # See the assignment guidelines for help on "mapping mime-types", though
     # you might need to create a special case for handling make_time.py
-    content = b"not implemented"
-    mime_type = b"not implemented"
+
+
+
+    #get url
+    from mimetypes import MimeTypes
+    import urllib
+    path = parse_request()
+    mime = MimeTypes()
+    mytype = mime.guess_type(path)
+
+    content = b"{}".format(path)
+    mime_type = b"{}".format(mytype)
+
+
 
     return content, mime_type
 
@@ -94,9 +115,22 @@ def server(log_buffer=sys.stderr):
             conn, addr = sock.accept()  # blocking
             try:
                 print('connection - {0}:{1}'.format(*addr), file=log_buffer)
+
+                request = ''
                 while True:
-                    data = conn.recv(16)
+                    data = conn.recv(1024)
+                    request += data.decode('uft8')
+
+                    if '\r\n\r\b' in request:
+                        break
+
                     print('received "{0}"'.format(data), file=log_buffer)
+                    try:
+                        path = parse_request()
+                    except NotImplementedError:
+                        response = response_method_not_allowed()
+                    conn.sendall(response)
+
                     if data:
                         print('sending data back to client', file=log_buffer)
                         conn.sendall(data)
@@ -104,12 +138,14 @@ def server(log_buffer=sys.stderr):
                         msg = 'no more data from {0}:{1}'.format(*addr)
                         print(msg, log_buffer)
                         break
-            finally:
-                conn.close()
+
+                except:
+                    traceback.print_exc()
+                finally:
+                    conn.close()
 
     except KeyboardInterrupt:
         sock.close()
-        return
 
 
 if __name__ == '__main__':
